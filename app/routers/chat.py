@@ -1,19 +1,20 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from fastapi.responses import Response
+
+import requests
+import os
 
 from app.database import get_db
 from app.shemas import ChatRequest
 from app.services.deepseek_service import analyser_requete
-from fastapi.responses import Response
-import requests
-import os
-
 from app.services.google_places import rechercher_lieux, extraire_places
 from app.crud import (
     enregistrer_entreprise,
     rechercher_entreprises,
 )
-router = APIRouter()  
+
+router = APIRouter()
 
 
 @router.get("/photo/{photo_name:path}")
@@ -30,93 +31,147 @@ def get_photo(photo_name: str):
 
     return Response(
         content=r.content,
-        media_type=r.headers.get("Content-Type", "image/jpeg")
+        media_type=r.headers.get(
+            "Content-Type",
+            "image/jpeg"
+        )
     )
-    
+
 
 @router.post("/chat")
-def chat(request: ChatRequest, db: Session = Depends(get_db)):
+def chat(
+    request: ChatRequest,
+    db: Session = Depends(get_db)
+):
+    # 1. Analyse de la demande
 
     analyse = analyser_requete(request.message)
 
+    print("ANALYSE :", analyse)
+
     service = analyse.get("service")
     commune = analyse.get("commune")
-    ville = analyse.get("ville")
     quartier = analyse.get("quartier")
+    categorie = analyse.get("categorie")
 
-    if service is None:
+    # 2. Vérifier le service
+
+    if not service:
+
         return {
+            "entreprises": [],
             "output": "Je n'ai pas compris le service recherché."
         }
+
+    
+    # 3. Chercher d'abord dans MySQL
 
     entreprises = rechercher_entreprises(
         db,
         analyse
     )
 
+    print(
+        "Résultats MySQL :",
+        len(entreprises)
+    )
+
+    # 4. Si MySQL est vide
+    # → recherche Google Places
+
     if len(entreprises) == 0:
 
         recherche = service
 
-        recherche = service
-
-        if analyse["categorie"]:
-            recherche += f" {analyse['categorie']}"
+        if categorie:
+            recherche += f" {categorie}"
 
         if commune:
-             recherche += f" {commune}"
+            recherche += f" {commune}"
 
         if quartier:
             recherche += f" {quartier}"
 
-            recherche += " Côte d'Ivoire"
+        recherche += " Abidjan Côte d'Ivoire"
 
-        resultat = rechercher_lieux(recherche)
+        print(
+            "Recherche Google Places :",
+            recherche
+        )
 
-        places = extraire_places(resultat)
+        # 5. Recherche Google
+        
 
+        resultat = rechercher_lieux(
+            recherche
+        )
+
+        places = extraire_places(
+            resultat
+        )
+
+        print(
+            "Résultats Google Places :",
+            len(places)
+        )
+
+        
+        # 6. Enregistrer les résultats
         for p in places:
 
-         enregistrer_entreprise(
-         db=db,
-         p=p,
-         service=analyse["service"],
-         categorie=analyse["categorie"],
-         commune=analyse["commune"],
-         ville=analyse["ville"]
-        )
-         
+            enregistrer_entreprise(
+                db=db,
+                p=p,
+                service=analyse["service"],
+                categorie=analyse["categorie"],
+                commune=analyse["commune"],
+                ville=analyse["ville"]
+            )
+
+        # 7. Relire MySQL
+
         entreprises = rechercher_entreprises(
             db,
             analyse
         )
+
+        print(
+            "Résultats après sauvegarde :",
+            len(entreprises)
+        )
+    # 8. Préparer la réponse Flutter
+
     liste = []
 
     for e in entreprises:
 
-     liste.append({
-        "photo": e.photo,
+        liste.append({
 
-        "nom": e.nom,
+            "photo": e.photo,
 
-        "service": e.service,
+            "nom": e.nom,
 
-        "adresse": e.adresse,
+            "service": e.service,
 
-        "telephone": e.telephone,
+            "adresse": e.adresse,
 
-        "whatsapp": e.whatsapp,
+            "telephone": e.telephone,
 
-        "note": e.note,
+            "whatsapp": e.whatsapp,
 
-        "site_web": e.site_web,
+            "note": e.note,
 
-        "latitude": e.latitude,
+            "site_web": e.site_web,
 
-        "longitude": e.longitude,
+            "latitude": e.latitude,
 
-    })
+            "longitude": e.longitude,
+
+        })
+
+    
+    # 9. Réponse
 
     return {
-    "entreprises": liste
+        "entreprises": liste
     }

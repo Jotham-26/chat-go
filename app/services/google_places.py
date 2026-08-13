@@ -4,48 +4,68 @@ import json
 
 from dotenv import load_dotenv
 
-load_dotenv(dotenv_path=".env")
+load_dotenv()
 
 API_KEY = os.getenv("GOOGLE_API_KEY")
-print("Clé API :", API_KEY)
+
 
 def rechercher_lieux(recherche):
 
-    url = "https://places.googleapis.com/v1/places:searchText"
+    url = (
+        "https://places.googleapis.com/v1/places:searchText"
+    )
 
     headers = {
-    "Content-Type": "application/json",
-    "X-Goog-Api-Key": API_KEY,
-    "X-Goog-FieldMask": (
-        "places.id,"
-        "places.displayName,"
-        "places.formattedAddress,"
-        "places.location,"
-        "places.rating,"
-        "places.userRatingCount,"
-        "places.nationalPhoneNumber,"
-        "places.websiteUri,"
-        "places.businessStatus,"
-        "places.photos"
-    )
-}
 
-    body = {
-        "textQuery": recherche
+        "Content-Type": "application/json",
+
+        "X-Goog-Api-Key": API_KEY,
+
+        "X-Goog-FieldMask": (
+            "places.id,"
+            "places.displayName,"
+            "places.formattedAddress,"
+            "places.location,"
+            "places.rating,"
+            "places.userRatingCount,"
+            "places.nationalPhoneNumber,"
+            "places.websiteUri,"
+            "places.businessStatus,"
+            "places.photos"
+        )
     }
 
-    response = requests.post(url, json=body, headers=headers)
+    body = {
 
-    data = response.json()
+        "textQuery": recherche
 
-    print(json.dumps(data, indent=2, ensure_ascii=False))
+    }
 
-    return data
+    response = requests.post(
+        url,
+        json=body,
+        headers=headers,
+        timeout=30
+    )
+
+    print(
+        "Google Places HTTP :",
+        response.status_code
+    )
+
+    print(
+        "Google Places réponse :",
+        response.text
+    )
+
+    response.raise_for_status()
+
+    return response.json()
 
 
-    print(json.dumps(data, indent=2, ensure_ascii=False))
-
-    return data
 def extraire_places(resultat):
 
-    return resultat.get("places", [])
+    return resultat.get(
+        "places",
+        []
+    )
