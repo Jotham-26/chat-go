@@ -1,16 +1,25 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.database import engine, Base
+from app.models import Entreprise
 from app.routers.chat import router
+
+
+# Créer les tables de la base de données
+Base.metadata.create_all(bind=engine)
+
 
 app = FastAPI()
 
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],      # pour les tests
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 app.include_router(router)
