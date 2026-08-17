@@ -65,6 +65,7 @@ def chat(
 
     
     # 3. Chercher d'abord dans MySQL
+    source = "database" 
 
     entreprises = rechercher_entreprises(
         db,
@@ -79,7 +80,10 @@ def chat(
     # 4. Si MySQL est vide
     # → recherche Google Places
 
+    
+
     if len(entreprises) == 0:
+        source = "online"
 
         recherche = service
 
@@ -173,5 +177,6 @@ def chat(
     # 9. Réponse
 
     return {
-        "entreprises": liste
+        "entreprises": liste,
+        "source" : source
     }
